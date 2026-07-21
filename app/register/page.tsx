@@ -1,0 +1,493 @@
+"use client";
+
+export const dynamic = "force-dynamic";
+
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import HeartbeatLoader from "@/components/HeartbeatLoader";
+import CustomSelect from "@/components/CustomSelect";
+import {
+  BUSINESS_CATEGORIES,
+  CONNECTION_OPTIONS,
+  type BusinessCategory,
+  type ConnectionLookingFor,
+} from "@/lib/types";
+
+interface FormData {
+  full_name: string;
+  designation: string;
+  business_name: string;
+  business_category: BusinessCategory | "";
+  one_line_description: string;
+  mobile_number: string;
+  whatsapp_number: string;
+  email: string;
+  website: string;
+  linkedin: string;
+  instagram: string;
+  city: string;
+  connection_looking_for: ConnectionLookingFor | "";
+  consent_required: boolean;
+  consent_marketing: boolean;
+}
+
+const INITIAL: FormData = {
+  full_name: "",
+  designation: "",
+  business_name: "",
+  business_category: "",
+  one_line_description: "",
+  mobile_number: "+91",
+  whatsapp_number: "",
+  email: "",
+  website: "",
+  linkedin: "",
+  instagram: "",
+  city: "",
+  connection_looking_for: "",
+  consent_required: false,
+  consent_marketing: false,
+};
+
+function validate(data: FormData): Record<string, string> {
+  const e: Record<string, string> = {};
+  if (!data.full_name.trim() || data.full_name.length < 2)
+    e.full_name = "Name must be at least 2 characters.";
+  if (!data.designation.trim()) e.designation = "Designation is required.";
+  if (!data.business_name.trim()) e.business_name = "Business name is required.";
+  if (!data.business_category) e.business_category = "Select a business category.";
+  if (!data.one_line_description.trim() || data.one_line_description.length < 10)
+    e.one_line_description = "Description must be at least 10 characters.";
+  if (data.one_line_description.length > 120)
+    e.one_line_description = "Description must be 120 characters or fewer.";
+  const phoneReg = /^\+[1-9]\d{6,14}$/;
+  if (!phoneReg.test(data.mobile_number.replace(/\s/g, "")))
+    e.mobile_number = "Enter a valid mobile number with country code (e.g. +919876543210).";
+  if (data.whatsapp_number && !phoneReg.test(data.whatsapp_number.replace(/\s/g, "")))
+    e.whatsapp_number = "Enter a valid WhatsApp number with country code.";
+  if (!data.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email))
+    e.email = "Enter a valid email address.";
+  if (!data.city.trim()) e.city = "City is required.";
+  if (!data.connection_looking_for)
+    e.connection_looking_for = "Select what you're looking for.";
+  if (!data.consent_required)
+    e.consent_required = "You must agree to the terms to create your e-card.";
+  return e;
+}
+
+const inputClass =
+  "w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-colors " +
+  "border-[#e8a8c8] focus:ring-[#5B2A6F] focus:border-[#5B2A6F] bg-white placeholder-gray-400";
+
+const labelClass = "block text-sm font-medium text-[#5B2A6F] mb-1";
+const errorClass = "text-xs text-red-500 mt-1";
+
+export default function RegisterPage() {
+  const [form, setForm] = useState<FormData>(INITIAL);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [step, setStep] = useState<"form" | "preview">("form");
+  const [submitting, setSubmitting] = useState(false);
+  const [globalError, setGlobalError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  function set(field: keyof FormData, value: string | boolean) {
+    setForm((p) => ({ ...p, [field]: value }));
+    setErrors((p) => { const n = { ...p }; delete n[field]; return n; });
+  }
+
+  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setErrors((p) => ({ ...p, photo: "Only image files are allowed." }));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors((p) => ({ ...p, photo: "Image must be smaller than 5 MB." }));
+      return;
+    }
+    setPhotoFile(file);
+    setErrors((p) => { const n = { ...p }; delete n.photo; return n; });
+    const reader = new FileReader();
+    reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  function handleReview(e: React.FormEvent) {
+    e.preventDefault();
+    const errs = validate(form);
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    setStep("preview");
+    window.scrollTo(0, 0);
+  }
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    setGlobalError("");
+    const supabase = createClient();
+    try {
+      let photo_url: string | null = null;
+
+      if (photoFile) {
+        const ext = photoFile.name.split(".").pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("profile-photos")
+          .upload(fileName, photoFile, { contentType: photoFile.type, upsert: false });
+        if (uploadError) throw new Error("Photo upload failed: " + uploadError.message);
+        const { data: urlData } = supabase.storage
+          .from("profile-photos")
+          .getPublicUrl(fileName);
+        photo_url = urlData.publicUrl;
+      }
+
+      const payload = {
+        full_name: form.full_name.trim(),
+        designation: form.designation.trim(),
+        business_name: form.business_name.trim(),
+        business_category: form.business_category as BusinessCategory,
+        description: form.one_line_description.trim(),
+        mobile_number: form.mobile_number.replace(/\s/g, ""),
+        whatsapp_number: form.whatsapp_number ? form.whatsapp_number.replace(/\s/g, "") : null,
+        email: form.email.trim().toLowerCase(),
+        website: form.website.trim() || null,
+        linkedin: form.linkedin.trim() || null,
+        instagram: form.instagram.trim() || null,
+        city: form.city.trim(),
+        photo_url,
+        looking_for: form.connection_looking_for as ConnectionLookingFor,
+        consent_required: form.consent_required,
+        consent_marketing: form.consent_marketing,
+      };
+
+      const { data, error } = await supabase
+        .from("registrations")
+        .insert(payload)
+        .select("id")
+        .single();
+
+      if (error) throw new Error(error.message);
+      router.push(`/card/${data.id}`);
+    } catch (err) {
+      setGlobalError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setSubmitting(false);
+    }
+  }
+
+  if (submitting) return <HeartbeatLoader />;
+
+  const categoryLabel = BUSINESS_CATEGORIES.find((c) => c.value === form.business_category)?.label || "";
+  const connectionLabel = CONNECTION_OPTIONS.find((c) => c.value === form.connection_looking_for)?.label || "";
+
+  if (step === "preview") {
+    return (
+      <main className="min-h-screen bg-[#fdf8fb] pb-16">
+        <header className="bg-[#5B2A6F] text-white text-center py-5">
+          <p className="text-xs tracking-widest uppercase opacity-70">naturals salon chain</p>
+          <h1 className="text-xl font-bold tracking-wide mt-1">Preview Your E-Card</h1>
+        </header>
+
+        <div className="max-w-md mx-auto px-4 mt-8 space-y-4">
+          {/* Card preview */}
+          <div className="rounded-2xl border border-[#e8a8c8] bg-white shadow-md overflow-hidden">
+            <div className="bg-gradient-to-r from-[#5B2A6F] to-[#7a3d92] px-6 pt-8 pb-12 text-center">
+              {photoPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={photoPreview}
+                  alt="Your photo"
+                  className="w-24 h-24 rounded-full object-cover mx-auto border-4 border-white shadow"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full mx-auto border-4 border-white bg-[#F3CCE0] flex items-center justify-center text-3xl font-bold text-[#5B2A6F]">
+                  {form.full_name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <h2 className="mt-4 text-xl font-bold text-white">{form.full_name}</h2>
+              <p className="text-[#F3CCE0] text-sm mt-1">{form.designation}</p>
+              <p className="text-white font-medium mt-1">{form.business_name}</p>
+            </div>
+
+            <div className="bg-[#F3CCE0] px-6 py-3 text-center">
+              <p className="text-[#5B2A6F] text-sm italic">&ldquo;{form.one_line_description}&rdquo;</p>
+            </div>
+
+            <div className="px-6 py-5 space-y-2 text-sm text-gray-700">
+              <Row label="Category" value={categoryLabel} />
+              <Row label="Mobile" value={form.mobile_number} />
+              <Row label="Email" value={form.email} />
+              {form.whatsapp_number && <Row label="WhatsApp" value={form.whatsapp_number} />}
+              <Row label="City" value={form.city} />
+              {form.website && <Row label="Website" value={form.website} />}
+              {form.linkedin && <Row label="LinkedIn" value={form.linkedin} />}
+              {form.instagram && <Row label="Instagram" value={form.instagram} />}
+              <Row label="Looking for" value={connectionLabel} />
+            </div>
+          </div>
+
+          {globalError && (
+            <p className="text-red-500 text-sm text-center">{globalError}</p>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => { setStep("form"); setGlobalError(""); window.scrollTo(0, 0); }}
+              className="flex-1 py-3 rounded-xl border-2 border-[#5B2A6F] text-[#5B2A6F] font-semibold text-sm"
+            >
+              Edit
+            </button>
+            <button
+              onClick={handleSubmit}
+              className="flex-1 py-3 rounded-xl bg-[#5B2A6F] text-white font-semibold text-sm shadow"
+            >
+              Confirm & Create Card
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-[#fdf8fb] pb-16">
+      <header className="bg-[#5B2A6F] text-white text-center py-5">
+        <p className="text-xs tracking-widest uppercase opacity-70">naturals salon chain</p>
+        <h1 className="text-xl font-bold tracking-wide mt-1">Create Your E-Card</h1>
+        <p className="text-[#F3CCE0] text-xs mt-1">Takes under 2 minutes</p>
+      </header>
+
+      <form onSubmit={handleReview} noValidate className="max-w-md mx-auto px-4 mt-8 space-y-5">
+
+        {/* Photo upload */}
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="inline-block"
+          >
+            {photoPreview ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photoPreview}
+                alt="Preview"
+                className="w-24 h-24 rounded-full object-cover border-4 border-[#5B2A6F] mx-auto"
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-full border-4 border-dashed border-[#e8a8c8] bg-[#fae6f0] flex flex-col items-center justify-center mx-auto cursor-pointer">
+                <span className="text-2xl">📷</span>
+                <span className="text-[10px] text-[#5B2A6F] mt-1">Add photo</span>
+              </div>
+            )}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handlePhoto}
+          />
+          {errors.photo && <p className={errorClass}>{errors.photo}</p>}
+          <p className="text-xs text-gray-400 mt-1">Optional · Max 5 MB</p>
+        </div>
+
+        <Field label="Full Name *" error={errors.full_name}>
+          <input
+            className={inputClass}
+            placeholder="e.g. Priya Sharma"
+            value={form.full_name}
+            onChange={(e) => set("full_name", e.target.value)}
+          />
+        </Field>
+
+        <Field label="Designation *" error={errors.designation}>
+          <input
+            className={inputClass}
+            placeholder="e.g. Founder & CEO"
+            value={form.designation}
+            onChange={(e) => set("designation", e.target.value)}
+          />
+        </Field>
+
+        <Field label="Business Name *" error={errors.business_name}>
+          <input
+            className={inputClass}
+            placeholder="e.g. Glow Studio"
+            value={form.business_name}
+            onChange={(e) => set("business_name", e.target.value)}
+          />
+        </Field>
+
+        <Field label="Business Category *" error={errors.business_category}>
+          <CustomSelect
+            value={form.business_category}
+            onChange={(v) => set("business_category", v)}
+            options={BUSINESS_CATEGORIES}
+            placeholder="Select a category…"
+          />
+        </Field>
+
+        <Field
+          label={`One-line Description * (${form.one_line_description.length}/120)`}
+          error={errors.one_line_description}
+        >
+          <textarea
+            className={`${inputClass} resize-none`}
+            rows={2}
+            placeholder="We help busy women rediscover confidence through expert styling."
+            maxLength={120}
+            value={form.one_line_description}
+            onChange={(e) => set("one_line_description", e.target.value)}
+          />
+        </Field>
+
+        <Field label="Mobile Number * (with country code)" error={errors.mobile_number}>
+          <input
+            className={inputClass}
+            placeholder="+919876543210"
+            value={form.mobile_number}
+            onChange={(e) => set("mobile_number", e.target.value)}
+            inputMode="tel"
+          />
+        </Field>
+
+        <Field label="WhatsApp Number (optional)" error={errors.whatsapp_number}>
+          <input
+            className={inputClass}
+            placeholder="+919876543210"
+            value={form.whatsapp_number}
+            onChange={(e) => set("whatsapp_number", e.target.value)}
+            inputMode="tel"
+          />
+        </Field>
+
+        <Field label="Email Address *" error={errors.email}>
+          <input
+            className={inputClass}
+            type="email"
+            placeholder="priya@glowstudio.in"
+            value={form.email}
+            onChange={(e) => set("email", e.target.value)}
+            inputMode="email"
+          />
+        </Field>
+
+        <Field label="Website (optional)" error={errors.website}>
+          <input
+            className={inputClass}
+            placeholder="https://glowstudio.in"
+            value={form.website}
+            onChange={(e) => set("website", e.target.value)}
+            inputMode="url"
+          />
+        </Field>
+
+        <Field label="LinkedIn (optional)" error={errors.linkedin}>
+          <input
+            className={inputClass}
+            placeholder="https://linkedin.com/in/priyasharma"
+            value={form.linkedin}
+            onChange={(e) => set("linkedin", e.target.value)}
+          />
+        </Field>
+
+        <Field label="Instagram (optional)" error={errors.instagram}>
+          <input
+            className={inputClass}
+            placeholder="@glowstudio"
+            value={form.instagram}
+            onChange={(e) => set("instagram", e.target.value)}
+          />
+        </Field>
+
+        <Field label="City *" error={errors.city}>
+          <input
+            className={inputClass}
+            placeholder="e.g. Chennai"
+            value={form.city}
+            onChange={(e) => set("city", e.target.value)}
+          />
+        </Field>
+
+        <Field label="What business connection are you looking for today? *" error={errors.connection_looking_for}>
+          <CustomSelect
+            value={form.connection_looking_for}
+            onChange={(v) => set("connection_looking_for", v)}
+            options={CONNECTION_OPTIONS}
+            placeholder="Select…"
+          />
+        </Field>
+
+        {/* Consent checkboxes — kept separate per spec */}
+        <div className="space-y-3 pt-2">
+          <label className="flex gap-3 items-start cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-0.5 accent-[#5B2A6F] w-4 h-4 flex-shrink-0"
+              checked={form.consent_required}
+              onChange={(e) => set("consent_required", e.target.checked)}
+            />
+            <span className="text-sm text-gray-700">
+              <span className="font-medium text-red-500">*</span>{" "}
+              I agree to the use of my information for creating and delivering my e-card.
+            </span>
+          </label>
+          {errors.consent_required && <p className={errorClass}>{errors.consent_required}</p>}
+
+          <label className="flex gap-3 items-start cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-0.5 accent-[#5B2A6F] w-4 h-4 flex-shrink-0"
+              checked={form.consent_marketing}
+              onChange={(e) => set("consent_marketing", e.target.checked)}
+            />
+            <span className="text-sm text-gray-700">
+              I would like to receive future event, networking and business opportunity updates.
+            </span>
+          </label>
+        </div>
+
+        <button
+          type="submit"
+          className="w-full py-4 rounded-xl bg-[#5B2A6F] text-white font-bold text-base shadow-md mt-4 active:scale-[0.98] transition-transform"
+        >
+          Preview My Card →
+        </button>
+
+        <p className="text-center text-xs text-gray-400 pb-4">
+          Your information is kept private and secure.
+        </p>
+      </form>
+    </main>
+  );
+}
+
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className={labelClass}>{label}</label>
+      {children}
+      {error && <p className={errorClass}>{error}</p>}
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2">
+      <span className="text-[#5B2A6F] font-medium w-24 flex-shrink-0">{label}:</span>
+      <span className="break-all">{value}</span>
+    </div>
+  );
+}

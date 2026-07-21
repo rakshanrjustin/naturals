@@ -1,26 +1,40 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fdf8fb;
+  --foreground: #1a1a1a;
+  --brand-purple: #5B2A6F;
+  --brand-purple-dark: #3d1b4a;
+  --brand-purple-light: #7a3d92;
+  --brand-pink: #F3CCE0;
+  --brand-pink-dark: #e8a8c8;
+  --brand-pink-light: #fae6f0;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand-purple: var(--brand-purple);
+  --color-brand-purple-dark: var(--brand-purple-dark);
+  --color-brand-purple-light: var(--brand-purple-light);
+  --color-brand-pink: var(--brand-pink);
+  --color-brand-pink-dark: var(--brand-pink-dark);
+  --color-brand-pink-light: var(--brand-pink-light);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Heartbeat pulse animation */
+@keyframes heartbeat-pulse {
+  0%, 100% { transform: scale(0.97); opacity: 0.85; }
+  50% { transform: scale(1.03); opacity: 1; }
+}
+
+.animate-heartbeat {
+  animation: heartbeat-pulse 2s ease-in-out infinite;
 }
