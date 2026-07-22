@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import HeartbeatLoader from "@/components/HeartbeatLoader";
 import CustomSelect from "@/components/CustomSelect";
 import {
@@ -119,7 +120,11 @@ export default function RegisterPage() {
   async function handleSubmit() {
     setSubmitting(true);
     setGlobalError("");
-    const supabase = createClient();
+    const supabase = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false } }
+    );
     try {
       let photo_url: string | null = null;
 
