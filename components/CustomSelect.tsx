@@ -19,6 +19,7 @@ export default function CustomSelect({ value, onChange, options, placeholder = '
   const [highlighted, setHighlighted] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const id = useId();
 
   const selectedLabel = options.find((o) => o.value === value)?.label ?? '';
@@ -49,6 +50,7 @@ export default function CustomSelect({ value, onChange, options, placeholder = '
   function select(v: string) {
     onChange(v);
     setOpen(false);
+    triggerRef.current?.focus();
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLButtonElement>) {
@@ -84,6 +86,7 @@ export default function CustomSelect({ value, onChange, options, placeholder = '
     <div ref={containerRef} className="relative">
       {/* Trigger */}
       <button
+        ref={triggerRef}
         type="button"
         role="combobox"
         aria-haspopup="listbox"
@@ -133,10 +136,7 @@ export default function CustomSelect({ value, onChange, options, placeholder = '
               role="option"
               aria-selected={opt.value === value}
               onMouseEnter={() => setHighlighted(i)}
-              onPointerDown={(e) => {
-                e.preventDefault(); // keep focus on trigger
-                select(opt.value);
-              }}
+              onClick={() => select(opt.value)}
               className={
                 'px-4 py-2.5 text-sm cursor-pointer transition-colors ' +
                 (opt.value === value
