@@ -8,7 +8,9 @@ export default function HeartbeatLoader() {
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ backgroundColor: "#F3CCE0" }}
     >
-      <NaturalsLogo className="w-72 animate-heartbeat" color="#5B2A6F" />
+      <div className="w-72 flex items-center justify-center animate-heartbeat">
+        <NaturalsLogo className="w-full h-auto" color="#5B2A6F" />
+      </div>
     </div>
   );
 }

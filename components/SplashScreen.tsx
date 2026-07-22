@@ -28,7 +28,9 @@ export default function SplashScreen() {
         pointerEvents: fading ? 'none' : 'auto',
       }}
     >
-      <NaturalsLogo className="w-72 animate-heartbeat" color="#5B2A6F" />
+      <div className="w-72 flex items-center justify-center animate-heartbeat">
+        <NaturalsLogo className="w-full h-auto" color="#5B2A6F" />
+      </div>
     </div>
   );
 }

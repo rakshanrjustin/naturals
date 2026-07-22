@@ -208,7 +208,7 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
           ) : (
             <div className="w-44 h-44 mx-auto bg-[#fae6f0] rounded-xl animate-pulse" />
           )}
-          <p className="text-xs text-gray-400 mt-3">Points to this page</p>
+          <p className="text-xs text-gray-400 mt-3">{r.full_name}</p>
         </div>
 
         {/* Naturals branding footer */}
