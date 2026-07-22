@@ -9,7 +9,6 @@ import HeartbeatLoader from "@/components/HeartbeatLoader";
 import CustomSelect from "@/components/CustomSelect";
 import {
   BUSINESS_CATEGORIES,
-  CONNECTION_OPTIONS,
   type BusinessCategory,
   type ConnectionLookingFor,
 } from "@/lib/types";
@@ -57,20 +56,12 @@ function validate(data: FormData): Record<string, string> {
   if (!data.designation.trim()) e.designation = "Designation is required.";
   if (!data.business_name.trim()) e.business_name = "Business name is required.";
   if (!data.business_category) e.business_category = "Select a business category.";
-  if (!data.one_line_description.trim() || data.one_line_description.length < 10)
-    e.one_line_description = "Description must be at least 10 characters.";
-  if (data.one_line_description.length > 120)
-    e.one_line_description = "Description must be 120 characters or fewer.";
   const phoneReg = /^\+[1-9]\d{6,14}$/;
   if (!phoneReg.test(data.mobile_number.replace(/\s/g, "")))
     e.mobile_number = "Enter a valid mobile number with country code (e.g. +919876543210).";
-  if (data.whatsapp_number && !phoneReg.test(data.whatsapp_number.replace(/\s/g, "")))
-    e.whatsapp_number = "Enter a valid WhatsApp number with country code.";
   if (!data.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email))
     e.email = "Enter a valid email address.";
   if (!data.city.trim()) e.city = "City is required.";
-  if (!data.connection_looking_for)
-    e.connection_looking_for = "Select what you're looking for.";
   if (!data.consent_required)
     e.consent_required = "You must agree to the terms to create your e-card.";
   return e;
@@ -150,16 +141,16 @@ export default function RegisterPage() {
         designation: form.designation.trim(),
         business_name: form.business_name.trim(),
         business_category: form.business_category as BusinessCategory,
-        description: form.one_line_description.trim(),
+        description: "Naturals networking member.",
         mobile_number: form.mobile_number.replace(/\s/g, ""),
-        whatsapp_number: form.whatsapp_number ? form.whatsapp_number.replace(/\s/g, "") : null,
+        whatsapp_number: null,
         email: form.email.trim().toLowerCase(),
-        website: form.website.trim() || null,
+        website: null,
         linkedin: form.linkedin.trim() || null,
-        instagram: form.instagram.trim() || null,
+        instagram: null,
         city: form.city.trim(),
         photo_url,
-        looking_for: form.connection_looking_for as ConnectionLookingFor,
+        looking_for: "customers" as ConnectionLookingFor,
         consent_required: form.consent_required,
         consent_marketing: form.consent_marketing,
       };
@@ -181,7 +172,6 @@ export default function RegisterPage() {
   if (submitting) return <HeartbeatLoader />;
 
   const categoryLabel = BUSINESS_CATEGORIES.find((c) => c.value === form.business_category)?.label || "";
-  const connectionLabel = CONNECTION_OPTIONS.find((c) => c.value === form.connection_looking_for)?.label || "";
 
   if (step === "preview") {
     return (
@@ -212,20 +202,12 @@ export default function RegisterPage() {
               <p className="text-white font-medium mt-1">{form.business_name}</p>
             </div>
 
-            <div className="bg-[#F3CCE0] px-6 py-3 text-center">
-              <p className="text-[#5B2A6F] text-sm italic">&ldquo;{form.one_line_description}&rdquo;</p>
-            </div>
-
             <div className="px-6 py-5 space-y-2 text-sm text-gray-700">
               <Row label="Category" value={categoryLabel} />
               <Row label="Mobile" value={form.mobile_number} />
               <Row label="Email" value={form.email} />
-              {form.whatsapp_number && <Row label="WhatsApp" value={form.whatsapp_number} />}
               <Row label="City" value={form.city} />
-              {form.website && <Row label="Website" value={form.website} />}
               {form.linkedin && <Row label="LinkedIn" value={form.linkedin} />}
-              {form.instagram && <Row label="Instagram" value={form.instagram} />}
-              <Row label="Looking for" value={connectionLabel} />
             </div>
           </div>
 
@@ -330,36 +312,12 @@ export default function RegisterPage() {
           />
         </Field>
 
-        <Field
-          label={`One-line Description * (${form.one_line_description.length}/120)`}
-          error={errors.one_line_description}
-        >
-          <textarea
-            className={`${inputClass} resize-none`}
-            rows={2}
-            placeholder="We help busy women rediscover confidence through expert styling."
-            maxLength={120}
-            value={form.one_line_description}
-            onChange={(e) => set("one_line_description", e.target.value)}
-          />
-        </Field>
-
         <Field label="Mobile Number * (with country code)" error={errors.mobile_number}>
           <input
             className={inputClass}
             placeholder="+919876543210"
             value={form.mobile_number}
             onChange={(e) => set("mobile_number", e.target.value)}
-            inputMode="tel"
-          />
-        </Field>
-
-        <Field label="WhatsApp Number (optional)" error={errors.whatsapp_number}>
-          <input
-            className={inputClass}
-            placeholder="+919876543210"
-            value={form.whatsapp_number}
-            onChange={(e) => set("whatsapp_number", e.target.value)}
             inputMode="tel"
           />
         </Field>
@@ -375,16 +333,6 @@ export default function RegisterPage() {
           />
         </Field>
 
-        <Field label="Website (optional)" error={errors.website}>
-          <input
-            className={inputClass}
-            placeholder="https://glowstudio.in"
-            value={form.website}
-            onChange={(e) => set("website", e.target.value)}
-            inputMode="url"
-          />
-        </Field>
-
         <Field label="LinkedIn (optional)" error={errors.linkedin}>
           <input
             className={inputClass}
@@ -394,30 +342,12 @@ export default function RegisterPage() {
           />
         </Field>
 
-        <Field label="Instagram (optional)" error={errors.instagram}>
-          <input
-            className={inputClass}
-            placeholder="@glowstudio"
-            value={form.instagram}
-            onChange={(e) => set("instagram", e.target.value)}
-          />
-        </Field>
-
         <Field label="City *" error={errors.city}>
           <input
             className={inputClass}
             placeholder="e.g. Chennai"
             value={form.city}
             onChange={(e) => set("city", e.target.value)}
-          />
-        </Field>
-
-        <Field label="What business connection are you looking for today? *" error={errors.connection_looking_for}>
-          <CustomSelect
-            value={form.connection_looking_for}
-            onChange={(v) => set("connection_looking_for", v)}
-            options={CONNECTION_OPTIONS}
-            placeholder="Select…"
           />
         </Field>
 

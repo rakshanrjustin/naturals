@@ -96,11 +96,13 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
       <div className="max-w-sm mx-auto px-4 -mt-10 space-y-4">
 
         {/* Description card */}
-        <div className="bg-white rounded-2xl shadow-md p-5">
-          <p className="text-[#5B2A6F] text-center italic text-sm leading-relaxed">
-            &ldquo;{r.description}&rdquo;
-          </p>
-        </div>
+        {r.description && r.description !== "Naturals networking member." && (
+          <div className="bg-white rounded-2xl shadow-md p-5">
+            <p className="text-[#5B2A6F] text-center italic text-sm leading-relaxed">
+              &ldquo;{r.description}&rdquo;
+            </p>
+          </div>
+        )}
 
         {/* Contact actions */}
         <div className="bg-white rounded-2xl shadow-md p-5 space-y-3">
@@ -165,10 +167,12 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
         </div>
 
         {/* Looking for */}
-        <div className="bg-[#F3CCE0] rounded-2xl shadow-md p-5">
-          <p className="text-xs font-bold tracking-widest text-[#5B2A6F] uppercase mb-2">Looking for</p>
-          <p className="text-[#3d1b4a] font-semibold">{connectionLabel}</p>
-        </div>
+        {r.looking_for && r.looking_for !== "customers" && (
+          <div className="bg-[#F3CCE0] rounded-2xl shadow-md p-5">
+            <p className="text-xs font-bold tracking-widest text-[#5B2A6F] uppercase mb-2">Looking for</p>
+            <p className="text-[#3d1b4a] font-semibold">{connectionLabel}</p>
+          </div>
+        )}
 
         {/* Action buttons */}
         <div className="flex gap-3">
