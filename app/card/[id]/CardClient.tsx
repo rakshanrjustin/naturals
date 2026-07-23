@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import type { Registration } from "@/lib/types";
-import { ExternalLink, Link, Phone, Mail, Globe, MessageCircle } from "lucide-react";
+import { ExternalLink, Link, Phone, Mail, Globe, MessageCircle, Download } from "lucide-react";
 
 interface Props {
   registration: Registration;
@@ -14,6 +14,7 @@ interface Props {
 export default function CardClient({ registration: r, categoryLabel, connectionLabel }: Props) {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const cardUrl = typeof window !== "undefined" ? window.location.href : "";
 
   useEffect(() => {
@@ -68,8 +69,51 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
     window.open(`https://wa.me/?text=${msg}`, "_blank");
   }
 
+  async function downloadPDF() {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      const html2canvas = (await import("html2canvas-pro")).default;
+      const jsPDF = (await import("jspdf")).default;
+
+      const element = document.getElementById("card-to-download");
+      if (!element) {
+        setIsDownloading(false);
+        return;
+      }
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#fdf8fb",
+        windowWidth: 430,
+        width: 430,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+
+      const pdf = new jsPDF({
+        orientation: imgWidth > imgHeight ? "landscape" : "portrait",
+        unit: "px",
+        format: [imgWidth, imgHeight],
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      pdf.save(`${r.full_name.replace(/\s+/g, "_")}_card.pdf`);
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+    } finally {
+      setIsDownloading(false);
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-[#fdf8fb] pb-16">
+    <main id="card-to-download" className="min-h-screen bg-[#fdf8fb] pb-16">
       {/* Header banner */}
       <div className="bg-gradient-to-br from-[#5B2A6F] to-[#3d1b4a] pt-10 pb-20 text-center px-4">
         {r.photo_url ? (
@@ -175,7 +219,7 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
         )}
 
         {/* Action buttons */}
-        <div className="flex gap-3">
+        <div className="flex gap-3" data-html2canvas-ignore="true">
           <button
             onClick={downloadVCard}
             className="flex-1 py-3.5 rounded-xl bg-[#5B2A6F] text-white font-semibold text-sm shadow-md flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
@@ -193,8 +237,19 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
         <button
           onClick={copyLink}
           className="w-full py-3 rounded-xl border-2 border-[#5B2A6F] text-[#5B2A6F] font-semibold text-sm"
+          data-html2canvas-ignore="true"
         >
           {copied ? "✓ Link copied!" : "Copy Card Link"}
+        </button>
+
+        <button
+          onClick={downloadPDF}
+          disabled={isDownloading}
+          className="w-full py-3 rounded-xl border-2 border-[#5B2A6F] text-[#5B2A6F] font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-50"
+          data-html2canvas-ignore="true"
+        >
+          <Download size={16} />
+          {isDownloading ? "Downloading PDF..." : "Download PDF"}
         </button>
 
         {/* QR code */}
