@@ -45,7 +45,7 @@ export default async function CardPage({ params }: Props) {
   if (error || !data) notFound();
 
   const registration = data as Registration;
-  const categoryLabel = BUSINESS_CATEGORIES.find((c) => c.value === registration.business_category)?.label ?? "";
+  const categoryLabel = BUSINESS_CATEGORIES.find((c) => c.value === registration.business_category)?.label ?? registration.business_category;
   const connectionLabel = CONNECTION_OPTIONS.find((c) => c.value === registration.looking_for)?.label ?? "";
 
   return (

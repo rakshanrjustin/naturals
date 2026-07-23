@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import type { Registration } from "@/lib/types";
 import { ExternalLink, Link, Phone, Mail, Globe, MessageCircle, Download } from "lucide-react";
@@ -72,13 +72,21 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
   async function downloadPDF() {
     if (isDownloading) return;
     setIsDownloading(true);
+
+    const originalScrollY = window.scrollY;
+    const originalScrollX = window.scrollX;
+
     try {
+      // Scroll to the very top to ensure no element offset issues occur during capture
+      window.scrollTo(0, 0);
+
       const html2canvas = (await import("html2canvas-pro")).default;
       const jsPDF = (await import("jspdf")).default;
 
-      const element = document.getElementById("card-to-download");
+      const element = document.getElementById("pdf-render-template");
       if (!element) {
         setIsDownloading(false);
+        window.scrollTo(originalScrollX, originalScrollY);
         return;
       }
 
@@ -87,53 +95,82 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
         useCORS: true,
         logging: false,
         backgroundColor: "#fdf8fb",
-        windowWidth: 430,
-        width: 430,
+        width: 375,
+        height: 750,
         scrollX: 0,
         scrollY: 0,
       });
 
+      // Restore scroll position immediately after canvas rendering is complete
+      window.scrollTo(originalScrollX, originalScrollY);
+
       const imgData = canvas.toDataURL("image/png");
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
 
       const pdf = new jsPDF({
-        orientation: imgWidth > imgHeight ? "landscape" : "portrait",
+        orientation: "portrait",
         unit: "px",
-        format: [imgWidth, imgHeight],
+        format: [375, 750],
       });
 
-      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
-      pdf.save(`${r.full_name.replace(/\s+/g, "_")}_card.pdf`);
+      pdf.addImage(imgData, "PNG", 0, 0, 375, 750);
+
+      // Detect iOS / iPhone / iPad environments
+      const isIOS =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+      if (isIOS) {
+        // iOS Safari and In-App browsers block async blob downloads. 
+        // Direct window navigation triggers native Safari preview and Share Sheet flow reliably.
+        const blob = pdf.output("blob");
+        const url = URL.createObjectURL(blob);
+        window.location.href = url;
+        // Revoke after 5 seconds to ensure Safari has loaded it
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 5000);
+      } else {
+        pdf.save(`${r.full_name.replace(/\s+/g, "_")}_card.pdf`);
+      }
     } catch (error) {
       console.error("Failed to download PDF:", error);
+      window.scrollTo(originalScrollX, originalScrollY);
     } finally {
       setIsDownloading(false);
     }
   }
 
   return (
-    <main id="card-to-download" className="min-h-screen bg-[#fdf8fb] pb-16">
-      {/* Header banner */}
-      <div className="bg-gradient-to-br from-[#5B2A6F] to-[#3d1b4a] pt-10 pb-20 text-center px-4">
-        {r.photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={r.photo_url}
-            alt={r.full_name}
-            className="w-28 h-28 rounded-full object-cover mx-auto border-4 border-white shadow-lg"
-          />
-        ) : (
-          <div className="w-28 h-28 rounded-full mx-auto border-4 border-white bg-[#F3CCE0] flex items-center justify-center text-4xl font-bold text-[#5B2A6F] shadow-lg">
-            {r.full_name.charAt(0).toUpperCase()}
-          </div>
-        )}
-        <h1 className="text-2xl font-bold text-white mt-4">{r.full_name}</h1>
-        <p className="text-[#F3CCE0] text-sm mt-1">{r.designation}</p>
-        <p className="text-white font-semibold mt-1">{r.business_name}</p>
-        <span className="inline-block mt-2 bg-[#F3CCE0] text-[#5B2A6F] text-xs font-semibold px-3 py-1 rounded-full">
-          {categoryLabel}
-        </span>
+    <main className="min-h-screen bg-[#fdf8fb] pb-16">
+      <div id="card-to-download" className="bg-[#fdf8fb] w-full">
+        {/* Header banner */}
+        <div className="bg-gradient-to-br from-[#5B2A6F] to-[#3d1b4a] pt-10 pb-20 text-center px-4">
+          {r.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={r.photo_url}
+              alt={r.full_name}
+              className="w-32 h-32 rounded-full object-cover mx-auto border-4 border-white shadow-lg"
+            />
+          ) : (
+            <div className="w-32 h-32 rounded-full mx-auto border-4 border-white bg-[#F3CCE0] flex items-center justify-center text-5xl font-bold text-[#5B2A6F] shadow-lg">
+              {r.full_name.charAt(0).toUpperCase()}
+            </div>
+          )}
+        <h1 className="text-[clamp(1.5rem,5vw,1.875rem)] font-extrabold text-white mt-5 tracking-tight max-w-[280px] sm:max-w-sm mx-auto leading-tight break-words">
+          {r.full_name}
+        </h1>
+        <p className="text-[#F3CCE0] text-xs sm:text-sm font-semibold tracking-widest uppercase mt-2 max-w-[260px] sm:max-w-xs mx-auto leading-relaxed break-words">
+          {r.designation}
+        </p>
+        <p className="text-white text-base sm:text-lg font-bold mt-1.5 max-w-[280px] sm:max-w-sm mx-auto leading-snug break-words">
+          {r.business_name}
+        </p>
+        <div className="mt-4">
+          <span className="inline-block bg-[#F3CCE0] text-[#5B2A6F] text-xs font-bold px-4 py-1.5 rounded-full shadow-sm">
+            {categoryLabel}
+          </span>
+        </div>
       </div>
 
       {/* Card body — overlaps header */}
@@ -252,6 +289,8 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
           {isDownloading ? "Downloading PDF..." : "Download PDF"}
         </button>
 
+
+
         {/* QR code */}
         <div className="bg-white rounded-2xl shadow-md p-6 text-center">
           <p className="text-xs font-bold tracking-widest text-[#5B2A6F] uppercase mb-4">
@@ -276,6 +315,7 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
           <p className="text-sm font-bold tracking-widest text-[#5B2A6F] uppercase">naturals</p>
         </div>
       </div>
+    </div>
 
       <style jsx>{`
         .contact-row {
@@ -291,6 +331,139 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
           color: #5B2A6F;
         }
       `}</style>
+
+
+
+      {/* Hidden PDF template for high-fidelity export */}
+      <div
+        id="pdf-render-template"
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: "0",
+          width: "375px",
+          height: "750px",
+          backgroundColor: "#fdf8fb",
+          fontFamily: "var(--font-inter), sans-serif",
+          display: "flex",
+          flexDirection: "column",
+          color: "#374151",
+          boxSizing: "border-box"
+        }}
+      >
+        {/* Header gradient banner */}
+        <div 
+          style={{
+            background: "linear-gradient(135deg, #5B2A6F 0%, #3d1b4a 100%)",
+            padding: "36px 24px 44px 24px",
+            textAlign: "center",
+            position: "relative"
+          }}
+        >
+          {r.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={r.photo_url}
+              alt={r.full_name}
+              style={{
+                width: "110px",
+                height: "110px",
+                borderRadius: "50%",
+                objectFit: "cover",
+                margin: "0 auto",
+                border: "4px solid #ffffff",
+                boxShadow: "0 4px 10px rgba(0,0,0,0.15)"
+              }}
+            />
+          ) : (
+            <div 
+              style={{
+                width: "110px",
+                height: "110px",
+                borderRadius: "50%",
+                margin: "0 auto",
+                border: "4px solid #ffffff",
+                backgroundColor: "#F3CCE0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "44px",
+                fontWeight: "bold",
+                color: "#5B2A6F",
+                boxShadow: "0 4px 10px rgba(0,0,0,0.15)"
+              }}
+            >
+              {r.full_name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <h1 style={{ color: "#ffffff", fontSize: "24px", fontWeight: "800", marginTop: "16px", marginBottom: "4px", lineHeight: "1.2", overflowWrap: "break-word" }}>
+            {r.full_name}
+          </h1>
+          <p style={{ color: "#F3CCE0", fontSize: "12px", fontWeight: "600", letterSpacing: "0.1em", textTransform: "uppercase", margin: "4px 0 6px 0", lineHeight: "1.3" }}>
+            {r.designation}
+          </p>
+          <p style={{ color: "#ffffff", fontSize: "16px", fontWeight: "700", margin: "0", lineHeight: "1.3" }}>
+            {r.business_name}
+          </p>
+          <div style={{ marginTop: "14px" }}>
+            <span style={{ backgroundColor: "#F3CCE0", color: "#5B2A6F", fontSize: "10px", fontWeight: "800", padding: "6px 14px", borderRadius: "9999px", display: "inline-block", textTransform: "uppercase" }}>
+              {categoryLabel}
+            </span>
+          </div>
+        </div>
+
+        {/* Content body */}
+        <div style={{ padding: "28px 24px", flex: "1", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <div>
+            {r.description && r.description !== "Naturals networking member." && (
+              <p style={{ fontSize: "13px", fontStyle: "italic", color: "#6B7280", textAlign: "center", marginBottom: "20px", marginTop: "0", lineHeight: "1.5" }}>
+                &ldquo;{r.description}&rdquo;
+              </p>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px" }}>
+                <span style={{ color: "#5B2A6F", fontWeight: "600" }}>Mobile:</span>
+                <span>{r.mobile_number}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px" }}>
+                <span style={{ color: "#5B2A6F", fontWeight: "600" }}>Email:</span>
+                <span style={{ wordBreak: "break-all" }}>{r.email}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px" }}>
+                <span style={{ color: "#5B2A6F", fontWeight: "600" }}>City:</span>
+                <span>{r.city}</span>
+              </div>
+              {r.linkedin && (
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px" }}>
+                  <span style={{ color: "#5B2A6F", fontWeight: "600" }}>LinkedIn:</span>
+                  <span style={{ wordBreak: "break-all" }}>{r.linkedin}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* QR Code and Footer */}
+          <div style={{ textAlign: "center", marginTop: "24px" }}>
+            <p style={{ fontSize: "11px", fontWeight: "800", letterSpacing: "0.05em", color: "#5B2A6F", textTransform: "uppercase", marginBottom: "8px" }}>
+              Scan to connect
+            </p>
+            {qrDataUrl && (
+              <img
+                src={qrDataUrl}
+                alt="QR Code"
+                style={{ width: "120px", height: "120px", margin: "0 auto", display: "block" }}
+              />
+            )}
+            <p style={{ fontSize: "10px", color: "#9CA3AF", marginTop: "6px", marginBottom: "20px" }}>{r.full_name}</p>
+
+            <div style={{ borderTop: "1px solid #E5E7EB", paddingTop: "14px" }}>
+              <p style={{ fontSize: "9px", color: "#9CA3AF", margin: "0", textTransform: "uppercase" }}>Powered by</p>
+              <p style={{ fontSize: "13px", fontWeight: "800", color: "#5B2A6F", margin: "2px 0 0 0", letterSpacing: "0.1em", textTransform: "uppercase" }}>naturals e-connect</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

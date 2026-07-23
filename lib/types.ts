@@ -9,20 +9,7 @@ export type ConnectionLookingFor =
   | "mentors"
   | "tech_partners";
 
-export type BusinessCategory =
-  | "beauty_wellness"
-  | "fashion_apparel"
-  | "food_beverage"
-  | "health_fitness"
-  | "education_training"
-  | "technology"
-  | "retail"
-  | "professional_services"
-  | "manufacturing"
-  | "real_estate"
-  | "finance"
-  | "media_entertainment"
-  | "other";
+export type BusinessCategory = string;
 
 export interface Registration {
   id: string;
@@ -48,7 +35,7 @@ export interface Registration {
 
 export type RegistrationInsert = Omit<Registration, "id" | "created_at" | "card_delivery_status">;
 
-export const BUSINESS_CATEGORIES: { value: BusinessCategory; label: string }[] = [
+export const BUSINESS_CATEGORIES: { value: string; label: string }[] = [
   { value: "beauty_wellness", label: "Beauty & Wellness" },
   { value: "fashion_apparel", label: "Fashion & Apparel" },
   { value: "food_beverage", label: "Food & Beverage" },
@@ -61,7 +48,7 @@ export const BUSINESS_CATEGORIES: { value: BusinessCategory; label: string }[] =
   { value: "real_estate", label: "Real Estate" },
   { value: "finance", label: "Finance" },
   { value: "media_entertainment", label: "Media & Entertainment" },
-  { value: "other", label: "Other" },
+  { value: "other", label: "Other — Enter your industry" },
 ];
 
 export const CONNECTION_OPTIONS: { value: ConnectionLookingFor; label: string }[] = [

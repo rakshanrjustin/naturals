@@ -2,10 +2,12 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import Cropper from "react-easy-crop";
+import { getCroppedImg } from "@/lib/cropImage";
 import HeartbeatLoader from "@/components/HeartbeatLoader";
 import CustomSelect from "@/components/CustomSelect";
 import {
@@ -18,7 +20,8 @@ interface FormData {
   full_name: string;
   designation: string;
   business_name: string;
-  business_category: BusinessCategory | "";
+  business_category: string;
+  custom_category: string;
   one_line_description: string;
   mobile_number: string;
   whatsapp_number: string;
@@ -37,6 +40,7 @@ const INITIAL: FormData = {
   designation: "",
   business_name: "",
   business_category: "",
+  custom_category: "",
   one_line_description: "",
   mobile_number: "+91",
   whatsapp_number: "",
@@ -56,7 +60,13 @@ function validate(data: FormData): Record<string, string> {
     e.full_name = "Name must be at least 2 characters.";
   if (!data.designation.trim()) e.designation = "Designation is required.";
   if (!data.business_name.trim()) e.business_name = "Business name is required.";
-  if (!data.business_category) e.business_category = "Select a business category.";
+  
+  if (!data.business_category) {
+    e.business_category = "Select a business category.";
+  } else if (data.business_category === "other" && !data.custom_category.trim()) {
+    e.business_category = "Enter your industry.";
+  }
+
   const phoneReg = /^\+[1-9]\d{6,14}$/;
   if (!phoneReg.test(data.mobile_number.replace(/\s/g, "")))
     e.mobile_number = "Enter a valid mobile number with country code (e.g. +919876543210).";
@@ -87,9 +97,29 @@ export default function RegisterPage() {
   const cameraRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
+  // Cropper states
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [showCropModal, setShowCropModal] = useState(false);
+
   function set(field: keyof FormData, value: string | boolean) {
     setForm((p) => ({ ...p, [field]: value }));
     setErrors((p) => { const n = { ...p }; delete n[field]; return n; });
+  }
+
+  function handleCategoryChange(value: string) {
+    setForm((p) => ({
+      ...p,
+      business_category: value,
+      custom_category: value === "other" ? p.custom_category : "",
+    }));
+    setErrors((p) => {
+      const n = { ...p };
+      delete n.business_category;
+      return n;
+    });
   }
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -103,12 +133,59 @@ export default function RegisterPage() {
       setErrors((p) => ({ ...p, photo: "Image must be smaller than 5 MB." }));
       return;
     }
-    setPhotoFile(file);
     setErrors((p) => { const n = { ...p }; delete n.photo; return n; });
     const reader = new FileReader();
-    reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
+    reader.onload = (ev) => {
+      setRawImageSrc(ev.target?.result as string);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setShowCropModal(true);
+    };
     reader.readAsDataURL(file);
   }
+
+  const onCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleCropSave = async () => {
+    if (!rawImageSrc || !croppedAreaPixels) return;
+    try {
+      setSubmitting(true);
+      const croppedBlob = await getCroppedImg(rawImageSrc, croppedAreaPixels);
+      const file = new File([croppedBlob], "profile-photo.jpg", {
+        type: "image/jpeg",
+      });
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(croppedBlob));
+      setShowCropModal(false);
+    } catch (err) {
+      console.error("Failed to crop image:", err);
+      setErrors((p) => ({ ...p, photo: "Failed to process image. Please try again." }));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCropCancel = () => {
+    setRawImageSrc(null);
+    setShowCropModal(false);
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (showCropModal) {
+        document.body.style.overflow = "hidden";
+      } else {
+        document.body.style.overflow = "";
+      }
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        document.body.style.overflow = "";
+      }
+    };
+  }, [showCropModal]);
 
   function handleReview(e: React.FormEvent) {
     e.preventDefault();
@@ -146,7 +223,7 @@ export default function RegisterPage() {
         full_name: form.full_name.trim(),
         designation: form.designation.trim(),
         business_name: form.business_name.trim(),
-        business_category: form.business_category as BusinessCategory,
+        business_category: form.business_category === "other" ? form.custom_category.trim() : form.business_category,
         description: "Naturals networking member.",
         mobile_number: form.mobile_number.replace(/\s/g, ""),
         whatsapp_number: null,
@@ -177,7 +254,9 @@ export default function RegisterPage() {
 
   if (submitting) return <HeartbeatLoader />;
 
-  const categoryLabel = BUSINESS_CATEGORIES.find((c) => c.value === form.business_category)?.label || "";
+  const categoryLabel = form.business_category === "other"
+    ? form.custom_category
+    : (BUSINESS_CATEGORIES.find((c) => c.value === form.business_category)?.label || form.business_category);
 
   if (step === "preview") {
     return (
@@ -331,10 +410,20 @@ export default function RegisterPage() {
         <Field label="Business Category *" error={errors.business_category}>
           <CustomSelect
             value={form.business_category}
-            onChange={(v) => set("business_category", v)}
+            onChange={handleCategoryChange}
             options={BUSINESS_CATEGORIES}
             placeholder="Select a category…"
           />
+          {form.business_category === "other" && (
+            <div className="mt-3">
+              <input
+                className={inputClass}
+                placeholder="Enter your industry"
+                value={form.custom_category}
+                onChange={(e) => set("custom_category", e.target.value)}
+              />
+            </div>
+          )}
         </Field>
 
         <Field label="Mobile Number * (with country code)" error={errors.mobile_number}>
@@ -416,6 +505,72 @@ export default function RegisterPage() {
           Your information is kept private and secure.
         </p>
       </form>
+
+      {/* Image Cropping Modal */}
+      {showCropModal && rawImageSrc && (
+        <div className="fixed inset-0 bg-black/60 z-[100] flex flex-col items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl flex flex-col">
+            <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-[#5B2A6F]">Adjust Profile Photo</h3>
+              <button 
+                type="button"
+                onClick={handleCropCancel}
+                className="text-gray-400 hover:text-gray-600 text-xl font-bold p-1 leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Cropper Container */}
+            <div className="relative w-full h-[320px] bg-neutral-900">
+              <Cropper
+                image={rawImageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+
+            {/* Controls */}
+            <div className="p-5 space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 block">Zoom</label>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#5B2A6F]"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCropCancel}
+                  className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCropSave}
+                  className="flex-1 py-3 rounded-xl bg-[#5B2A6F] text-white font-semibold text-sm hover:bg-[#4a215b] transition-colors shadow-md"
+                >
+                  Use Photo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

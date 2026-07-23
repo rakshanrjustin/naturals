@@ -224,7 +224,7 @@ export default function DashboardClient({ registrations, adminEmail }: Props) {
                       <td className="px-4 py-3">
                         <div className="text-gray-700">{r.business_name}</div>
                         <div className="text-xs text-gray-400">
-                          {BUSINESS_CATEGORIES.find((c) => c.value === r.business_category)?.label}
+                          {BUSINESS_CATEGORIES.find((c) => c.value === r.business_category)?.label ?? r.business_category}
                         </div>
                       </td>
                       <td className="px-4 py-3">
