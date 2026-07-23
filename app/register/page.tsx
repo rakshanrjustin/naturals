@@ -84,6 +84,7 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [globalError, setGlobalError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   function set(field: keyof FormData, value: string | boolean) {
@@ -251,11 +252,7 @@ export default function RegisterPage() {
 
         {/* Photo upload */}
         <div className="text-center">
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="inline-block"
-          >
+          <div className="relative inline-block">
             {photoPreview ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -264,12 +261,27 @@ export default function RegisterPage() {
                 className="w-24 h-24 rounded-full object-cover border-4 border-[#5B2A6F] mx-auto"
               />
             ) : (
-              <div className="w-24 h-24 rounded-full border-4 border-dashed border-[#e8a8c8] bg-[#fae6f0] flex flex-col items-center justify-center mx-auto cursor-pointer">
-                <span className="text-2xl">📷</span>
-                <span className="text-[10px] text-[#5B2A6F] mt-1">Add photo</span>
+              <div className="w-24 h-24 rounded-full border-4 border-dashed border-[#e8a8c8] bg-[#fae6f0] flex flex-col items-center justify-center mx-auto">
+                <span className="text-3xl">👤</span>
               </div>
             )}
-          </button>
+          </div>
+          <div className="flex justify-center gap-3 mt-3">
+            <button
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              className="text-xs font-semibold text-[#5B2A6F] bg-white px-3 py-2 rounded-xl border border-[#e8a8c8] flex items-center gap-1 active:scale-[0.98] transition-transform shadow-sm"
+            >
+              📷 Take Photo
+            </button>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="text-xs font-semibold text-[#5B2A6F] bg-white px-3 py-2 rounded-xl border border-[#e8a8c8] flex items-center gap-1 active:scale-[0.98] transition-transform shadow-sm"
+            >
+              📁 Upload Photo
+            </button>
+          </div>
           <input
             ref={fileRef}
             type="file"
@@ -277,8 +289,16 @@ export default function RegisterPage() {
             className="hidden"
             onChange={handlePhoto}
           />
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="user"
+            className="hidden"
+            onChange={handlePhoto}
+          />
           {errors.photo && <p className={errorClass}>{errors.photo}</p>}
-          <p className="text-xs text-gray-400 mt-1">Optional · Max 5 MB</p>
+          <p className="text-xs text-gray-400 mt-2">Optional · Max 5 MB</p>
         </div>
 
         <Field label="Full Name *" error={errors.full_name}>
