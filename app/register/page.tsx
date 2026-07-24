@@ -228,9 +228,9 @@ export default function RegisterPage() {
         mobile_number: form.mobile_number.replace(/\s/g, ""),
         whatsapp_number: null,
         email: form.email.trim().toLowerCase(),
-        website: null,
+        website: form.website.trim() || null,
         linkedin: form.linkedin.trim() || null,
-        instagram: null,
+        instagram: form.instagram.trim() || null,
         city: form.city.trim(),
         photo_url,
         looking_for: "customers" as ConnectionLookingFor,
@@ -292,7 +292,9 @@ export default function RegisterPage() {
               <Row label="Mobile" value={form.mobile_number} />
               <Row label="Email" value={form.email} />
               <Row label="City" value={form.city} />
+              {form.website && <Row label="Website" value={form.website} />}
               {form.linkedin && <Row label="LinkedIn" value={form.linkedin} />}
+              {form.instagram && <Row label="Instagram" value={form.instagram} />}
             </div>
           </div>
 
@@ -447,12 +449,30 @@ export default function RegisterPage() {
           />
         </Field>
 
+        <Field label="Website (optional)" error={errors.website}>
+          <input
+            className={inputClass}
+            placeholder="https://glowstudio.in"
+            value={form.website}
+            onChange={(e) => set("website", e.target.value)}
+          />
+        </Field>
+
         <Field label="LinkedIn (optional)" error={errors.linkedin}>
           <input
             className={inputClass}
             placeholder="https://linkedin.com/in/priyasharma"
             value={form.linkedin}
             onChange={(e) => set("linkedin", e.target.value)}
+          />
+        </Field>
+
+        <Field label="Instagram (optional)" error={errors.instagram}>
+          <input
+            className={inputClass}
+            placeholder="e.g. @glowstudio"
+            value={form.instagram}
+            onChange={(e) => set("instagram", e.target.value)}
           />
         </Field>
 

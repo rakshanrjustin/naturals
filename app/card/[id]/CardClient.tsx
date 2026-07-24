@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import type { Registration } from "@/lib/types";
-import { ExternalLink, Link, Phone, Mail, Globe, MessageCircle, Download } from "lucide-react";
+import { ExternalLink, Link, Phone, Mail, Globe, MessageCircle } from "lucide-react";
 
 interface Props {
   registration: Registration;
@@ -14,7 +14,6 @@ interface Props {
 export default function CardClient({ registration: r, categoryLabel, connectionLabel }: Props) {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
   const cardUrl = typeof window !== "undefined" ? window.location.href : "";
 
   useEffect(() => {
@@ -67,77 +66,6 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
       `Hi! Here's my digital business card from Naturals Networking: ${window.location.href}`
     );
     window.open(`https://wa.me/?text=${msg}`, "_blank");
-  }
-
-  async function downloadPDF() {
-    if (isDownloading) return;
-    setIsDownloading(true);
-
-    const originalScrollY = window.scrollY;
-    const originalScrollX = window.scrollX;
-
-    try {
-      // Scroll to the very top to ensure no element offset issues occur during capture
-      window.scrollTo(0, 0);
-
-      const html2canvas = (await import("html2canvas-pro")).default;
-      const jsPDF = (await import("jspdf")).default;
-
-      const element = document.getElementById("pdf-render-template");
-      if (!element) {
-        setIsDownloading(false);
-        window.scrollTo(originalScrollX, originalScrollY);
-        return;
-      }
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#fdf8fb",
-        width: 375,
-        height: 750,
-        scrollX: 0,
-        scrollY: 0,
-      });
-
-      // Restore scroll position immediately after canvas rendering is complete
-      window.scrollTo(originalScrollX, originalScrollY);
-
-      const imgData = canvas.toDataURL("image/png");
-
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "px",
-        format: [375, 750],
-      });
-
-      pdf.addImage(imgData, "PNG", 0, 0, 375, 750);
-
-      // Detect iOS / iPhone / iPad environments
-      const isIOS =
-        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-
-      if (isIOS) {
-        // iOS Safari and In-App browsers block async blob downloads. 
-        // Direct window navigation triggers native Safari preview and Share Sheet flow reliably.
-        const blob = pdf.output("blob");
-        const url = URL.createObjectURL(blob);
-        window.location.href = url;
-        // Revoke after 5 seconds to ensure Safari has loaded it
-        setTimeout(() => {
-          URL.revokeObjectURL(url);
-        }, 5000);
-      } else {
-        pdf.save(`${r.full_name.replace(/\s+/g, "_")}_card.pdf`);
-      }
-    } catch (error) {
-      console.error("Failed to download PDF:", error);
-      window.scrollTo(originalScrollX, originalScrollY);
-    } finally {
-      setIsDownloading(false);
-    }
   }
 
   return (
@@ -212,7 +140,12 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
           )}
 
           {r.website && (
-            <a href={r.website} target="_blank" rel="noopener noreferrer" className="contact-row">
+            <a
+              href={r.website.startsWith("http") ? r.website : `https://${r.website}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="contact-row"
+            >
               <Globe size={16} className="text-[#5B2A6F]" />
               <span className="truncate">{r.website.replace(/^https?:\/\//, "")}</span>
             </a>
@@ -279,15 +212,7 @@ export default function CardClient({ registration: r, categoryLabel, connectionL
           {copied ? "✓ Link copied!" : "Copy Card Link"}
         </button>
 
-        <button
-          onClick={downloadPDF}
-          disabled={isDownloading}
-          className="w-full py-3 rounded-xl border-2 border-[#5B2A6F] text-[#5B2A6F] font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-50"
-          data-html2canvas-ignore="true"
-        >
-          <Download size={16} />
-          {isDownloading ? "Downloading PDF..." : "Download PDF"}
-        </button>
+
 
 
 
